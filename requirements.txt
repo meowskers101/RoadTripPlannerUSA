@@ -1,0 +1,10 @@
+pygame>=2.0.0
+ursina>=3.0.0
+pillow>=9.0.0
+streamlit>=1.0
+matplotlib>=3.0
+pandas>=1.0
+pydeck>=0.8
+pygame>=2.0.0
+ursina>=3.0.0
+pillow>=9.0.0
