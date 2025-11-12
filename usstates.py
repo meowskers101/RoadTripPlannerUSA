@@ -10,7 +10,7 @@ usa_map = {
     "Delaware": ["Maryland", "Pennsylvania", "New Jersey"],
     "Florida": ["Alabama", "Georgia"],
     "Georgia": ["Florida", "Alabama", "Tennessee", "North Carolina", "South Carolina"],
-    "Hawaii": ["California"],
+    "Hawaii": ["California", "Alaska"],
     "Idaho": ["Washington", "Oregon", "Nevada", "Utah", "Wyoming", "Montana"],
     "Illinois": ["Wisconsin", "Iowa", "Missouri", "Kentucky", "Indiana"],
     "Indiana": ["Illinois", "Kentucky", "Ohio", "Michigan"],
