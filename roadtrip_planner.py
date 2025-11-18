@@ -8,7 +8,11 @@ import math
 import matplotlib.pyplot as plt
 import json
 import os
+import googlemaps
+from datetime import datetime
 
+# Replace 'YOUR_API_KEY' with the actual key you obtained
+gmaps = googlemaps.Client(key='AIzaSyClGj1KgBLK78ehvTHL3xcwPXzMi-cHD0Y')
 # Try to import interactive map libraries; if unavailable we'll fall back to matplotlib
 try:
     import pandas as pd
@@ -18,8 +22,27 @@ except Exception:
     _HAS_PYDECK = False
 
 # Graph alias
-graph = usa_map
+graph = gmap
+def get_route_info(origin, destination):
+    # Request directions via public transit
+    # You may change the mode to 'driving' or 'walking'
+    now = datetime.now()
+    directions_result = gmaps.directions(origin,
+                                         destination,
+                                         mode="driving",
+                                         departure_time=now)
 
+    if directions_result:
+        # Extract the relevant details from the first route option
+        leg = directions_result[0]['legs'][0]
+        distance = leg['distance']['text']
+        duration = leg['duration']['text']
+        return distance, duration
+    else:
+        return "N/A", "N/A"
+
+# Example of how you would call it:
+# distance, duration = get_route_info("London, UK", "Paris, France")
 # Coordinates are imported from `usstates.state_coords` so the data is shared across modules.
 
 def plot_map(usa_graph, coords, route=None, show_edges=True, show_labels=True, geojson=None):
@@ -388,4 +411,5 @@ if show_map and BFS_path is None:
             st.pyplot(fig)
     except Exception as e:
         st.error(f"Error drawing map preview: {e}")
+
 
