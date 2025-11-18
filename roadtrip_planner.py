@@ -5,14 +5,18 @@ import streamlit as st
 from collections import deque
 from usstates import usa_map, state_info, state_coords
 import math
+import geopy
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+import shelve
+import time
+import matplotlib
+# Use a non-interactive backend suitable for headless servers (Streamlit hosting)
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import json
 import os
-import googlemaps
-from datetime import datetime
-x= st.sidebar.text_input("Enter Your Google Maps API Key Here")
-# Replace 'YOUR_API_KEY' with the actual key you obtained
-gmaps = googlemaps.Client(key=x)
+
 # Try to import interactive map libraries; if unavailable we'll fall back to matplotlib
 try:
     import pandas as pd
@@ -22,27 +26,8 @@ except Exception:
     _HAS_PYDECK = False
 
 # Graph alias
-graph = gmap
-def get_route_info(origin, destination):
-    # Request directions via public transit
-    # You may change the mode to 'driving' or 'walking'
-    now = datetime.now()
-    directions_result = gmaps.directions(origin,
-                                         destination,
-                                         mode="driving",
-                                         departure_time=now)
+graph = usa_map
 
-    if directions_result:
-        # Extract the relevant details from the first route option
-        leg = directions_result[0]['legs'][0]
-        distance = leg['distance']['text']
-        duration = leg['duration']['text']
-        return distance, duration
-    else:
-        return "N/A", "N/A"
-
-# Example of how you would call it:
-# distance, duration = get_route_info("London, UK", "Paris, France")
 # Coordinates are imported from `usstates.state_coords` so the data is shared across modules.
 
 def plot_map(usa_graph, coords, route=None, show_edges=True, show_labels=True, geojson=None):
@@ -306,6 +291,82 @@ if os.path.exists(geojson_path):
 else:
     st.info("No 'usstates.geojson' found — state borders disabled. Place a GeoJSON file named 'usstates.geojson' beside this script to enable borders.")
 
+# --- Geopy-based optional replacement of state coordinates ---
+CACHE_FILE = os.path.join(os.path.dirname(__file__), ".state_coords_cache")
+
+def geocode_states(states, existing_coords, cache_path=CACHE_FILE, min_delay_seconds=1):
+    """Geocode a list of state names using Nominatim and return a mapping state->(lat, lon).
+    Uses a shelve cache at cache_path to avoid re-querying states already resolved. Falls back
+    to existing_coords when geocoding fails.
+    """
+    geolocator = Nominatim(user_agent="roadtrip_planner_example_contact@example.com")
+    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=min_delay_seconds)
+
+    results = {}
+    # Open shelve cache (will create files like .state_coords_cache.db)
+    try:
+        with shelve.open(cache_path) as cache:
+            for state in states:
+                # prefer cached value
+                if state in cache:
+                    results[state] = cache[state]
+                    continue
+
+                query = f"{state}, USA"
+                try:
+                    loc = geocode(query, timeout=10)
+                    if loc:
+                        coords = (loc.latitude, loc.longitude)
+                        results[state] = coords
+                        cache[state] = coords
+                    else:
+                        # fallback to existing coords if available
+                        if state in existing_coords:
+                            results[state] = existing_coords[state]
+                        else:
+                            results[state] = None
+                    # be polite: short sleep to ensure rate limits are respected
+                    time.sleep(0.1)
+                except Exception:
+                    # On any geocoding failure, use fallback and continue
+                    if state in existing_coords:
+                        results[state] = existing_coords[state]
+                    else:
+                        results[state] = None
+    except Exception:
+        # If the cache cannot be opened for any reason, do a best-effort geocode without caching
+        geolocator = Nominatim(user_agent="roadtrip_planner_example_contact@example.com")
+        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=min_delay_seconds)
+        for state in states:
+            query = f"{state}, USA"
+            try:
+                loc = geocode(query, timeout=10)
+                if loc:
+                    results[state] = (loc.latitude, loc.longitude)
+                else:
+                    results[state] = existing_coords.get(state)
+                time.sleep(0.1)
+            except Exception:
+                results[state] = existing_coords.get(state)
+
+    return results
+
+# Provide a Streamlit control so the user can opt-in to replacing coordinates.
+use_geopy_coords = st.checkbox("Replace state coordinates using geopy (Nominatim). Slower on first run; cached subsequently)")
+if use_geopy_coords:
+    if st.button("Geocode states now"):
+        states_to_geocode = list(usa_map.keys())
+        with st.spinner("Geocoding states (this may take a minute on first run)..."):
+            try:
+                new_coords = geocode_states(states_to_geocode, state_coords)
+                # Replace the module-level `state_coords` mapping used by the app
+                state_coords = {k: v for k, v in new_coords.items() if v is not None}
+                st.success("Geocoding complete — coordinates updated (cached to disk).")
+            except Exception as e:
+                st.error(f"Geocoding failed: {e}")
+                # keep existing state_coords on failure
+
+# End geopy replacement block
 # Prepare a BFS_path variable for later plotting
 BFS_path = None
 #ios is "Info of States"
@@ -411,6 +472,4 @@ if show_map and BFS_path is None:
             st.pyplot(fig)
     except Exception as e:
         st.error(f"Error drawing map preview: {e}")
-
-
 
