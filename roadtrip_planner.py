@@ -10,9 +10,9 @@ import json
 import os
 import googlemaps
 from datetime import datetime
-
+x= st.sidebar.text_input("Enter Your Google Maps API Key Here")
 # Replace 'YOUR_API_KEY' with the actual key you obtained
-gmaps = googlemaps.Client(key='AIzaSyClGj1KgBLK78ehvTHL3xcwPXzMi-cHD0Y')
+gmaps = googlemaps.Client(key=x)
 # Try to import interactive map libraries; if unavailable we'll fall back to matplotlib
 try:
     import pandas as pd
@@ -411,5 +411,6 @@ if show_map and BFS_path is None:
             st.pyplot(fig)
     except Exception as e:
         st.error(f"Error drawing map preview: {e}")
+
 
 
