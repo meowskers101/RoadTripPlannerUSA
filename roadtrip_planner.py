@@ -5,7 +5,7 @@ import streamlit as st
 from collections import deque
 from usstates import usa_map, state_info, state_coords
 import math
-
+import geopy
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 import shelve
@@ -472,5 +472,6 @@ if show_map and BFS_path is None:
             st.pyplot(fig)
     except Exception as e:
         st.error(f"Error drawing map preview: {e}")
+
 
 
